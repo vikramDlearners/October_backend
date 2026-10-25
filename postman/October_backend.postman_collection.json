@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b4f2186f-3124-4ce7-b02c-27aaabebd001",
     "name": "October backend",
-    "description": "Weekend recommender + status (FastAPI, port 8000) and Sloth Trip Watcher (Node.js, port 3000).\n\nSet `baseUrl` / `slothBaseUrl` for your environment. Interactive FastAPI docs are at `{{baseUrl}}/docs` and the OpenAPI schema at `{{baseUrl}}/openapi.json`.\n\nFastAPI errors are `{ detail: string }` (400/502) or `{ detail: [ ... ] }` (422 validation). CORS is not enabled yet; a browser frontend on another origin needs it.",
+    "description": "Weekend recommender + status (FastAPI, port 8000) and Sloth Trip Watcher (Node.js, port 3000).\n\nSet `baseUrl` / `slothBaseUrl` for your environment. Interactive FastAPI docs are at `{{baseUrl}}/docs` and the OpenAPI schema at `{{baseUrl}}/openapi.json`.\n\nFastAPI errors are `{ detail: string }` (400/502) or `{ detail: [ ... ] }` (422 validation). Both apps send CORS headers (`CORS_ORIGIN`, default `*`), so a browser frontend on another origin can call them.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

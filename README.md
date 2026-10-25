@@ -83,7 +83,12 @@ cp .env.example .env          # optional; add GEMINI_API_KEY for fast answers
 - ReDoc: http://127.0.0.1:8000/redoc
 - OpenAPI schema: http://127.0.0.1:8000/openapi.json
 
-On this server the app runs as a plain `uvicorn` process from `/var/project/.venv`. It has no systemd unit, so restart it by hand after you pull changes.
+On this server the app runs as the systemd unit `weekend-api` ([`deploy/weekend-api.service`](deploy/weekend-api.service)) from `/var/project` as `azureuser`. It starts at boot and restarts on failure. After you pull changes or edit `.env`:
+
+```bash
+sudo systemctl restart weekend-api
+journalctl -u weekend-api -f
+```
 
 ### Configuration
 
@@ -100,6 +105,7 @@ All settings come from `.env`, which `app/config.py` loads once at import. Every
 | `APP_NAME` | `project` | Shown by `/status` and the docs |
 | `APP_VERSION` | `0.1.0` | Shown by `/status` |
 | `APP_ENV` | `development` | Shown by `/status` |
+| `CORS_ORIGIN` | `*` | Comma-separated origins allowed to call the API from a browser, such as `http://localhost:5173`. `*` allows any |
 
 ### FastAPI API reference
 
@@ -510,5 +516,5 @@ Each request comes with example responses.
 | Health shows `gemma: false` | `GEMINI_API_KEY` is empty in the deployed `.env`. Decisions use the rules fallback and plans aren't priced |
 | Card says "Telegram alert not sent" | Bad token or chat ID. The 404 error means the token is truncated. The next check retries the alert |
 | Send returns 503 | `ITINERARY_API_URL` isn't set on the server |
-| Browser shows a CORS error | The page's origin doesn't match `CORS_ORIGIN`, or an https page is calling the http API |
+| Browser shows a CORS error | The page's origin doesn't match `CORS_ORIGIN` (set separately for each app), or an https page is calling the http API |
 | The API times out from outside | Port 3000 (or 8000) isn't open in the cloud firewall |

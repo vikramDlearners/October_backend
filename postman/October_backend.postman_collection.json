@@ -1,0 +1,1069 @@
+{
+  "info": {
+    "_postman_id": "b4f2186f-3124-4ce7-b02c-27aaabebd001",
+    "name": "October backend",
+    "description": "Weekend recommender + status (FastAPI, port 8000) and Sloth Trip Watcher (Node.js, port 3000).\n\nSet `baseUrl` / `slothBaseUrl` for your environment. Interactive FastAPI docs are at `{{baseUrl}}/docs` and the OpenAPI schema at `{{baseUrl}}/openapi.json`.\n\nFastAPI errors are `{ detail: string }` (400/502) or `{ detail: [ ... ] }` (422 validation). CORS is not enabled yet; a browser frontend on another origin needs it.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://20.55.33.206:8000"
+    },
+    {
+      "key": "slothBaseUrl",
+      "value": "http://20.55.33.206:3000"
+    },
+    {
+      "key": "session_id",
+      "value": ""
+    },
+    {
+      "key": "watch_id",
+      "value": "1061ebd8-8051-4a2e-9c72-6c13e34ff62c"
+    }
+  ],
+  "item": [
+    {
+      "name": "Weekend recommender",
+      "description": "Asks 'What should I do this weekend?', then location and time available, and recommends one nearby place using weather, nearby places and local news.",
+      "item": [
+        {
+          "name": "Chat flow",
+          "description": "Conversation endpoint. Send the requests in order; each reply tells the frontend what to show next.\n\nRequest body: `{ \"session_id\": string | null, \"message\": string | null }` (message max 300 chars)\n\nResponse: `{ session_id, stage, reply, plan }`\n- `stage` is what the API is waiting for: `location` → `duration` → `done`.\n- `reply` is text to show the user.\n- `plan` is null until `stage` is `done`, then it holds the full recommendation (same shape as `/weekend/recommend` without `summary`).\n\nSessions live in server memory for 1 hour and are lost on restart. An unknown/expired `session_id` simply starts a new conversation.\nWhen `stage` is `done`, sending another location starts a new recommendation in the same session.\n\n⏱ The final step can take a few seconds with Gemini, or several minutes when the server falls back to local Ollama. Use a long client timeout (5 min) and show a loading state.",
+          "item": [
+            {
+              "name": "1. Start conversation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/chat",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "chat"
+                  ]
+                },
+                "description": "Starts a session. Returns the opening question and a `session_id` (saved automatically to the `session_id` collection variable).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Opening question",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/weekend/chat",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "weekend",
+                        "chat"
+                      ]
+                    },
+                    "description": "Starts a session. Returns the opening question and a `session_id` (saved automatically to the `session_id` collection variable).",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"stage\": \"location\",\n  \"reply\": \"What should I do this weekend? Let's find out. Where are you? (a city or area, or 'lat,lon')\",\n  \"plan\": null\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.session_id) pm.collectionVariables.set('session_id', data.session_id);",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Send location",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/chat",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "chat"
+                  ]
+                },
+                "description": "City/area name, or coordinates as `lat,lon` (e.g. from the browser's geolocation API).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"session_id\": \"{{session_id}}\",\n  \"message\": \"Chennai\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Location found",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/weekend/chat",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "weekend",
+                        "chat"
+                      ]
+                    },
+                    "description": "City/area name, or coordinates as `lat,lon` (e.g. from the browser's geolocation API).",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"message\": \"Chennai\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"stage\": \"duration\",\n  \"reply\": \"Got it: Chennai, Tamil Nadu, India. How much time do you have, including travel? (e.g. 3 hours, half day, full day, whole weekend)\",\n  \"plan\": null\n}"
+                },
+                {
+                  "name": "Coordinates",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/weekend/chat",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "weekend",
+                        "chat"
+                      ]
+                    },
+                    "description": "City/area name, or coordinates as `lat,lon` (e.g. from the browser's geolocation API).",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"message\": \"13.0827,80.2707\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"stage\": \"duration\",\n  \"reply\": \"Got it: 13.0827, 80.2707. How much time do you have, including travel? (e.g. 3 hours, half day, full day, whole weekend)\",\n  \"plan\": null\n}"
+                },
+                {
+                  "name": "Location not found (stays on stage 'location')",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/weekend/chat",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "weekend",
+                        "chat"
+                      ]
+                    },
+                    "description": "City/area name, or coordinates as `lat,lon` (e.g. from the browser's geolocation API).",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"message\": \"Xyzzyqqq\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"stage\": \"location\",\n  \"reply\": \"I couldn't find 'Xyzzyqqq' on the map. Try a nearby city name.\",\n  \"plan\": null\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.session_id) pm.collectionVariables.set('session_id', data.session_id);",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Send duration",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/chat",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "chat"
+                  ]
+                },
+                "description": "Free text such as `3 hours`, `half day`, `full day`, `2 days`, `whole weekend`. Up to 4 h searches 15 km, up to 10 h searches 60 km, more searches 150 km.\n\n⏱ Slow step: set a 5-minute timeout.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"session_id\": \"{{session_id}}\",\n  \"message\": \"full day\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Recommendation",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/weekend/chat",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "weekend",
+                        "chat"
+                      ]
+                    },
+                    "description": "Free text such as `3 hours`, `half day`, `full day`, `2 days`, `whole weekend`. Up to 4 h searches 15 km, up to 10 h searches 60 km, more searches 150 km.\n\n⏱ Slow step: set a 5-minute timeout.",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"message\": \"full day\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"stage\": \"done\",\n  \"reply\": \"Go to Government Museum, Chennai (3.0 km away) on 2026-10-25, 09:00-12:30.\\nIt is an indoor option, ideal for the predicted 90% chance of thunderstorms on Sunday. It's also very close.\\n• 09:00 Leave home for the Government Museum.\\n• 09:30-12:30 Explore the museum galleries.\\n• 12:30 Head back home.\\n• Afternoon: rest indoors to avoid the storm.\\nBring: Umbrella, Water bottle\\n📰 Heavy overnight rain batters Chennai as Northeast monsoon gets active in Tamil Nadu\\nOr: Thousand Lights Mosque (Another indoor option, close by, suitable for bad weather.); Guindy National Park (A green escape, but riskier due to potential heavy rain.)\\n\\nWant another idea? Send a different location.\",\n  \"plan\": {\n    \"location\": {\n      \"name\": \"Chennai\",\n      \"region\": \"Tamil Nadu, India\",\n      \"lat\": 13.08784,\n      \"lon\": 80.27847\n    },\n    \"duration\": \"a full day\",\n    \"hours\": 9,\n    \"radius_km\": 60,\n    \"weather\": [\n      {\n        \"date\": \"2026-10-25\",\n        \"weekday\": \"Sunday\",\n        \"summary\": \"thunderstorm\",\n        \"max_c\": 28.7,\n        \"min_c\": 24.7,\n        \"rain_chance\": 90,\n        \"rain_mm\": 22.9,\n        \"sunrise\": \"06:01\",\n        \"sunset\": \"17:45\"\n      }\n    ],\n    \"places\": [\n      {\n        \"name\": \"Marina Beach\",\n        \"kind\": \"beach\",\n        \"distance_km\": 3.8,\n        \"lat\": 13.05418,\n        \"lon\": 80.28368,\n        \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Marina_Beach\",\n        \"description\": \"Marina Beach, or simply the Marina, is a natural urban beach in Chennai, Tamil Nadu, India, along the Bay of Bengal. The beach runs from near Fort St. George in the north to Foreshore Estate in the south, a distance of 6.0 km (3.7 mi), It is a prominent landmark in Chennai.\",\n        \"notability\": 21\n      },\n      {\n        \"name\": \"Shore Temple\",\n        \"kind\": \"Hindu temple\",\n        \"distance_km\": 53.1,\n        \"lat\": 12.61638889,\n        \"lon\": 80.19861111,\n        \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Shore_Temple\",\n        \"description\": \"The Shore Temple is a complex of temples and shrines that overlooks the shore of the Bay of Bengal. It is located in Mahabalipuram, about 60 kilometres (37 mi) south of Chennai in Tamil Nadu, India.\",\n        \"notability\": 21\n      },\n      {\n        \"name\": \"Guindy National Park\",\n        \"kind\": \"national park\",\n        \"distance_km\": 10.8,\n        \"lat\": 13.00259,\n        \"lon\": 80.23079,\n        \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Guindy_National_Park\",\n        \"description\": \"Guindy National Park is a protected area, located in Chennai, India. Spread across 2.70 km2 (1.04 sq mi), it is one of the smallest National Parks in India and one of the few national parks situated inside a metropolitan area. The park is an extension of the grounds surrounding Raj Bhavan, the offic\",\n        \"notability\": 20\n      },\n      {\n        \"name\": \"Pulicat Lake\",\n        \"kind\": \"lake\",\n        \"distance_km\": 54.3,\n        \"lat\": 13.565833333,\n        \"lon\": 80.174722222,\n        \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Pulicat_Lake\",\n        \"description\": \"Pulicat Lake is the second-largest brackish-water lagoon in India, measuring 759 square kilometres (293 sq mi). A major part of the lagoon lies in the Tirupati district of Andhra Pradesh and rest with Thiruvallur district of Tamil Nadu. The lagoon is one of three important wetlands that attracts nor\",\n        \"notability\": 20\n      },\n      {\n        \"name\": \"Kapaleeshwarar Temple\",\n        \"kind\": \"Hindu temple\",\n        \"distance_km\": 6.1,\n        \"lat\": 13.03388889,\n        \"lon\": 80.26972222,\n        \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Kapaleeshwarar_Temple\",\n        \"description\": \"The Kapaleeshwarar Temple is a Hindu temple dedicated to the god Shiva. It is located in Mylapore, Chennai in the Indian state of Tamil Nadu. The temple was built around the 17th century A.D. and is an example of South Indian Architecture.\",\n        \"notability\": 18\n      }\n    ],\n    \"news\": [\n      {\n        \"title\": \"Heavy overnight rain batters Chennai as Northeast monsoon gets active in Tamil Nadu - The Hindu\",\n        \"source\": \"The Hindu\",\n        \"published\": \"Sun, 18 Oct 2026 15:31:31 GMT\",\n        \"link\": \"https://news.google.com/rss/articles/CBMi4gFBVV95cUxPZnVMVmhPRTh4ZUZ0U01sOUo3Y0ZVVjVrT284N3F4QlkxN0hXbWtfc2dyeHR5WG9kdzEzZkUzOE1NdXJHS29VTGJOWE5OM21DY0l1YS1hazZUa3BlY1VPUXc0M2l5UFYtWllvZXdhd3B1VzBwdHZ2SWY5bEpESHRJQXI2THJRVFJwNThjS2NpYWlGVFdBSjNES0lSNno0clc0QmhTUDVYaVMtTFNKZG9NdFhFQ2NDeEEtRkJKckxGY0g3eUh4LXpacEE4b0RxTTlHRVpUQ2ZNRmJqeG5pZGw0aTh30gHoAUFVX3lxTFBnZndodWpoRmlkQUZ2aEFUc3I4clUwZm5vN3RWa2gzZDB4OWlKR2FmZ0t2MUkwNU9qdHFNb2tDeU9USDR6cUgwMkZ1cTA3ZFBEbGhWZnFycWc4UkdTS2lSSVJHNDc3clgtb2tvM3RQM1dueTI1UG5oa0JSYlV5Q2hIWDNlVE5XMjliTHNzeWRScU5GdlYxVlRVb3NxZmhYVVJCNGR6SzVpTHhFUHpsYy1URFU2MjhBLUlzSG1tM0M5YjR4Z0VfS2Qyb2ZZWFFXRDR3VUlfVW80LXp6WllEWF9KMl9lV1VHa18?oc=5\"\n      },\n      {\n        \"title\": \"Parts of Chennai inundated after overnight rain - The New Indian Express\",\n        \"source\": \"The New Indian Express\",\n        \"published\": \"Thu, 22 Oct 2026 02:56:01 GMT\",\n        \"link\": \"https://news.google.com/rss/articles/CBMiqwFBVV95cUxOdHhIZ1FEQ3k2aDBVV1dEaHQyNUxvc09sLUYzbFNlanRCdVZLbDNwUFh0Mk5sY3NBUTRHUjN6NmhjV2RDM2pTb3ZyZmQ5RHlBQWNSUGxwSUdVcE5Tdl92RTQzWDdEeEUwbXFfMzJ5aW5XaW5GTmhoWjFRby1mVW9KM3laYzdHalZMdnBNa0o5YjNCMlhDcWtjTjJpNWRIZW1SWGxOR0NncjlDYm_SAbgBQVVfeXFMT050QkJmeThvT2RGMC1JellZYzF4dW9VUS1SNzF0WmF3bTVtOEVBODZkaEItcUM5R1ItT2lPQkZ0by1yeGlHTjVTT1BNcWZxQXN6SXNsbEt4UWVSaGV4eGRFTGctSzd2b09VdWMweTU3NlZtX0JxYTNyS04tZFR0TnpFN0lFRjVJTG9TdGRvemVzWmdxc3BxQkwxQjVKek45YTJRUFRsT0VzbUx1M0J2OUpreXJLcS1VXw?oc=5\"\n      },\n      {\n        \"title\": \"Schools In Chennai, Nearby Districts Closed Due To Heavy Rain, Flood Risks - NDTV\",\n        \"source\": \"NDTV\",\n        \"published\": \"Wed, 21 Oct 2026 05:03:13 GMT\",\n        \"link\": \"https://news.google.com/rss/articles/CBMitgFBVV95cUxQX0V4Qkl4bnh0OVEyMGJyNF92OVRmZmF3YVFWTjlBd3d3VGlVdE1HanY3T2RYazB5QXNJNW9EVjhCWW03XzktX08xMVR2YjFZWmtNQWdjZThaQnYzbEFlb3hQTmFiLVVhMUwtWmdsczJPR3Jhemhfa2VJY1dPaUxqMkNReVdlQjdGcFhxWGpEQkZycGlrd0kyVkZWWDltTWdFTUJRMFpfMHZTSFRRdE9HWnBqdGhfd9IBvgFBVV95cUxOa3NBOHN6X3NPZWJZaFJKZUhVN1hpMDdtNTI1emhTdU12VVpwT2hTZzI1eXJzYl9SMHFnMjBjU1l3UnA1Zk9rUUhGUDZ0UUNlZVhZWWU3R3VhdG1STVRZWDFWZ096S1NFUnBneTFZUzRHUTRWZ2lZOE5nNC14VFV3Ql9ndllxLVhTNU55dTBKb1BKRzhOWmFqY3Y3RW50bnREX1N5T0xNSFZPaG9peHVZbzB2aXBKcVU4OGthalN3?oc=5\"\n      },\n      {\n        \"title\": \"Heavy rain lashes Chennai, schools shut in 4 districts - The Times of India\",\n        \"source\": \"The Times of India\",\n        \"published\": \"Wed, 21 Oct 2026 06:03:00 GMT\",\n        \"link\": \"https://news.google.com/rss/articles/CBMixwFBVV95cUxOdkc0aVJjYjc0eVE1ZGQxLVlJOHNQVVJqd1ZpRExmWWJhY05ROFZ5Rm5GX19QX0ktRXlzYmtyVjB5Q3JkNVY0NlBRQU10bnRXN0p3UC1CUnlFNFNqc19jQ2NtOUJwU3hhUWNWdG1ickF3NWZaZVFvNk1DNVUzbm5uR2w0STV3TkxSV0poVDFGYnNxTWM0VWxBSXQ4NS1mdHJIRzdJc19hYTc5Rm05eFljU0VCU19yekZteW9TSThEZ2dIU0YwZ0Y40gHMAUFVX3lxTE5aQ25vRjl3OXFSWjBhcVZOejhXMi1qbkFwbHhFaFNiWWFqaWxzLUJmSTA4S2ExQ0VhY2VVSWJ3SExtOVd0dEt3MkRVd3FSc05ZZzZUZUFLVzQwWVZJSTFWd0ZyRjBTdUZtWFNtR3RvVlFRRzFzaGRXQWNaRFc4aXpOLTJjeWtOYWdidjFPdkt4ZmY5clMyczJYT3E4VVYtTGhSNWZPUWtPSWJBMWVGUlU5cEctdDd3blU0T0M4N2FBbHI4Y09aR0xTY3ZmSA?oc=5\"\n      }\n    ],\n    \"recommendation\": {\n      \"place\": {\n        \"name\": \"Government Museum, Chennai\",\n        \"kind\": \"museum\",\n        \"distance_km\": 3.0,\n        \"lat\": 13.07065,\n        \"lon\": 80.257289,\n        \"maps_url\": \"https://www.google.com/maps/search/?api=1&query=13.07065,80.257289\",\n        \"description\": null,\n        \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Government_Museum,_Chennai\"\n      },\n      \"day\": \"2026-10-25\",\n      \"when\": \"09:00-12:30\",\n      \"why\": \"It is an indoor option, ideal for the predicted 90% chance of thunderstorms on Sunday. It's also very close.\",\n      \"plan\": [\n        \"09:00 Leave home for the Government Museum.\",\n        \"09:30-12:30 Explore the museum galleries.\",\n        \"12:30 Head back home.\",\n        \"Afternoon: rest indoors to avoid the storm.\"\n      ],\n      \"bring\": [\n        \"Umbrella\",\n        \"Water bottle\"\n      ],\n      \"news_notes\": [\n        \"Heavy overnight rain batters Chennai as Northeast monsoon gets active in Tamil Nadu\"\n      ],\n      \"backups\": [\n        {\n          \"name\": \"Thousand Lights Mosque\",\n          \"why\": \"Another indoor option, close by, suitable for bad weather.\"\n        },\n        {\n          \"name\": \"Guindy National Park\",\n          \"why\": \"A green escape, but riskier due to potential heavy rain.\"\n        }\n      ],\n      \"decided_by\": \"gemma4:e4b (Ollama)\"\n    }\n  }\n}"
+                },
+                {
+                  "name": "Duration not understood (stays on stage 'duration')",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "url": {
+                      "raw": "{{baseUrl}}/weekend/chat",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "weekend",
+                        "chat"
+                      ]
+                    },
+                    "description": "Free text such as `3 hours`, `half day`, `full day`, `2 days`, `whole weekend`. Up to 4 h searches 15 km, up to 10 h searches 60 km, more searches 150 km.\n\n⏱ Slow step: set a 5-minute timeout.",
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"message\": \"whenever\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"session_id\": \"230ca71dbfb842c09fcae7bc1d6101a9\",\n  \"stage\": \"duration\",\n  \"reply\": \"Sorry, I didn't get that. How much time do you have, including travel? (e.g. 3 hours, half day, full day, whole weekend)\",\n  \"plan\": null\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.session_id) pm.collectionVariables.set('session_id', data.session_id);",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "One-shot recommendation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/weekend/recommend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "weekend",
+                "recommend"
+              ]
+            },
+            "description": "Same recommendation in a single call, for UIs that collect location and duration in one form.\n\nBody: `{ location: string (2-200 chars), duration: string (1-100 chars) }`\n\nResponse fields:\n- `location`, `duration`, `hours`, `radius_km`\n- `weather[]`: weekend days with `summary`, `max_c`, `min_c`, `rain_chance` (%), `rain_mm`, `sunrise`, `sunset`\n- `places[]`: candidates with `distance_km`, `kind`, `description`, `wikipedia_url`, `notability`\n- `news[]`: `title`, `source`, `published`, `link`\n- `recommendation`: `place` (with `maps_url`), `day`, `when`, `why`, `plan[]`, `bring[]`, `news_notes[]`, `backups[]`, `decided_by`. `place` can be null if nothing was found nearby.\n- `summary`: ready-to-show text\n\n⏱ Set a 5-minute timeout.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"Chennai\",\n  \"duration\": \"full day\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Recommendation",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/recommend",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "recommend"
+                  ]
+                },
+                "description": "Same recommendation in a single call, for UIs that collect location and duration in one form.\n\nBody: `{ location: string (2-200 chars), duration: string (1-100 chars) }`\n\nResponse fields:\n- `location`, `duration`, `hours`, `radius_km`\n- `weather[]`: weekend days with `summary`, `max_c`, `min_c`, `rain_chance` (%), `rain_mm`, `sunrise`, `sunset`\n- `places[]`: candidates with `distance_km`, `kind`, `description`, `wikipedia_url`, `notability`\n- `news[]`: `title`, `source`, `published`, `link`\n- `recommendation`: `place` (with `maps_url`), `day`, `when`, `why`, `plan[]`, `bring[]`, `news_notes[]`, `backups[]`, `decided_by`. `place` can be null if nothing was found nearby.\n- `summary`: ready-to-show text\n\n⏱ Set a 5-minute timeout.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"location\": \"Chennai\",\n  \"duration\": \"full day\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"location\": {\n    \"name\": \"Chennai\",\n    \"region\": \"Tamil Nadu, India\",\n    \"lat\": 13.08784,\n    \"lon\": 80.27847\n  },\n  \"duration\": \"a full day\",\n  \"hours\": 9,\n  \"radius_km\": 60,\n  \"weather\": [\n    {\n      \"date\": \"2026-10-25\",\n      \"weekday\": \"Sunday\",\n      \"summary\": \"thunderstorm\",\n      \"max_c\": 28.7,\n      \"min_c\": 24.7,\n      \"rain_chance\": 90,\n      \"rain_mm\": 22.9,\n      \"sunrise\": \"06:01\",\n      \"sunset\": \"17:45\"\n    }\n  ],\n  \"places\": [\n    {\n      \"name\": \"Marina Beach\",\n      \"kind\": \"beach\",\n      \"distance_km\": 3.8,\n      \"lat\": 13.05418,\n      \"lon\": 80.28368,\n      \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Marina_Beach\",\n      \"description\": \"Marina Beach, or simply the Marina, is a natural urban beach in Chennai, Tamil Nadu, India, along the Bay of Bengal. The beach runs from near Fort St. George in the north to Foreshore Estate in the south, a distance of 6.0 km (3.7 mi), It is a prominent landmark in Chennai.\",\n      \"notability\": 21\n    },\n    {\n      \"name\": \"Shore Temple\",\n      \"kind\": \"Hindu temple\",\n      \"distance_km\": 53.1,\n      \"lat\": 12.61638889,\n      \"lon\": 80.19861111,\n      \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Shore_Temple\",\n      \"description\": \"The Shore Temple is a complex of temples and shrines that overlooks the shore of the Bay of Bengal. It is located in Mahabalipuram, about 60 kilometres (37 mi) south of Chennai in Tamil Nadu, India.\",\n      \"notability\": 21\n    },\n    {\n      \"name\": \"Guindy National Park\",\n      \"kind\": \"national park\",\n      \"distance_km\": 10.8,\n      \"lat\": 13.00259,\n      \"lon\": 80.23079,\n      \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Guindy_National_Park\",\n      \"description\": \"Guindy National Park is a protected area, located in Chennai, India. Spread across 2.70 km2 (1.04 sq mi), it is one of the smallest National Parks in India and one of the few national parks situated inside a metropolitan area. The park is an extension of the grounds surrounding Raj Bhavan, the offic\",\n      \"notability\": 20\n    },\n    {\n      \"name\": \"Pulicat Lake\",\n      \"kind\": \"lake\",\n      \"distance_km\": 54.3,\n      \"lat\": 13.565833333,\n      \"lon\": 80.174722222,\n      \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Pulicat_Lake\",\n      \"description\": \"Pulicat Lake is the second-largest brackish-water lagoon in India, measuring 759 square kilometres (293 sq mi). A major part of the lagoon lies in the Tirupati district of Andhra Pradesh and rest with Thiruvallur district of Tamil Nadu. The lagoon is one of three important wetlands that attracts nor\",\n      \"notability\": 20\n    },\n    {\n      \"name\": \"Kapaleeshwarar Temple\",\n      \"kind\": \"Hindu temple\",\n      \"distance_km\": 6.1,\n      \"lat\": 13.03388889,\n      \"lon\": 80.26972222,\n      \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Kapaleeshwarar_Temple\",\n      \"description\": \"The Kapaleeshwarar Temple is a Hindu temple dedicated to the god Shiva. It is located in Mylapore, Chennai in the Indian state of Tamil Nadu. The temple was built around the 17th century A.D. and is an example of South Indian Architecture.\",\n      \"notability\": 18\n    }\n  ],\n  \"news\": [\n    {\n      \"title\": \"Heavy overnight rain batters Chennai as Northeast monsoon gets active in Tamil Nadu - The Hindu\",\n      \"source\": \"The Hindu\",\n      \"published\": \"Sun, 18 Oct 2026 15:31:31 GMT\",\n      \"link\": \"https://news.google.com/rss/articles/CBMi4gFBVV95cUxPZnVMVmhPRTh4ZUZ0U01sOUo3Y0ZVVjVrT284N3F4QlkxN0hXbWtfc2dyeHR5WG9kdzEzZkUzOE1NdXJHS29VTGJOWE5OM21DY0l1YS1hazZUa3BlY1VPUXc0M2l5UFYtWllvZXdhd3B1VzBwdHZ2SWY5bEpESHRJQXI2THJRVFJwNThjS2NpYWlGVFdBSjNES0lSNno0clc0QmhTUDVYaVMtTFNKZG9NdFhFQ2NDeEEtRkJKckxGY0g3eUh4LXpacEE4b0RxTTlHRVpUQ2ZNRmJqeG5pZGw0aTh30gHoAUFVX3lxTFBnZndodWpoRmlkQUZ2aEFUc3I4clUwZm5vN3RWa2gzZDB4OWlKR2FmZ0t2MUkwNU9qdHFNb2tDeU9USDR6cUgwMkZ1cTA3ZFBEbGhWZnFycWc4UkdTS2lSSVJHNDc3clgtb2tvM3RQM1dueTI1UG5oa0JSYlV5Q2hIWDNlVE5XMjliTHNzeWRScU5GdlYxVlRVb3NxZmhYVVJCNGR6SzVpTHhFUHpsYy1URFU2MjhBLUlzSG1tM0M5YjR4Z0VfS2Qyb2ZZWFFXRDR3VUlfVW80LXp6WllEWF9KMl9lV1VHa18?oc=5\"\n    },\n    {\n      \"title\": \"Parts of Chennai inundated after overnight rain - The New Indian Express\",\n      \"source\": \"The New Indian Express\",\n      \"published\": \"Thu, 22 Oct 2026 02:56:01 GMT\",\n      \"link\": \"https://news.google.com/rss/articles/CBMiqwFBVV95cUxOdHhIZ1FEQ3k2aDBVV1dEaHQyNUxvc09sLUYzbFNlanRCdVZLbDNwUFh0Mk5sY3NBUTRHUjN6NmhjV2RDM2pTb3ZyZmQ5RHlBQWNSUGxwSUdVcE5Tdl92RTQzWDdEeEUwbXFfMzJ5aW5XaW5GTmhoWjFRby1mVW9KM3laYzdHalZMdnBNa0o5YjNCMlhDcWtjTjJpNWRIZW1SWGxOR0NncjlDYm_SAbgBQVVfeXFMT050QkJmeThvT2RGMC1JellZYzF4dW9VUS1SNzF0WmF3bTVtOEVBODZkaEItcUM5R1ItT2lPQkZ0by1yeGlHTjVTT1BNcWZxQXN6SXNsbEt4UWVSaGV4eGRFTGctSzd2b09VdWMweTU3NlZtX0JxYTNyS04tZFR0TnpFN0lFRjVJTG9TdGRvemVzWmdxc3BxQkwxQjVKek45YTJRUFRsT0VzbUx1M0J2OUpreXJLcS1VXw?oc=5\"\n    },\n    {\n      \"title\": \"Schools In Chennai, Nearby Districts Closed Due To Heavy Rain, Flood Risks - NDTV\",\n      \"source\": \"NDTV\",\n      \"published\": \"Wed, 21 Oct 2026 05:03:13 GMT\",\n      \"link\": \"https://news.google.com/rss/articles/CBMitgFBVV95cUxQX0V4Qkl4bnh0OVEyMGJyNF92OVRmZmF3YVFWTjlBd3d3VGlVdE1HanY3T2RYazB5QXNJNW9EVjhCWW03XzktX08xMVR2YjFZWmtNQWdjZThaQnYzbEFlb3hQTmFiLVVhMUwtWmdsczJPR3Jhemhfa2VJY1dPaUxqMkNReVdlQjdGcFhxWGpEQkZycGlrd0kyVkZWWDltTWdFTUJRMFpfMHZTSFRRdE9HWnBqdGhfd9IBvgFBVV95cUxOa3NBOHN6X3NPZWJZaFJKZUhVN1hpMDdtNTI1emhTdU12VVpwT2hTZzI1eXJzYl9SMHFnMjBjU1l3UnA1Zk9rUUhGUDZ0UUNlZVhZWWU3R3VhdG1STVRZWDFWZ096S1NFUnBneTFZUzRHUTRWZ2lZOE5nNC14VFV3Ql9ndllxLVhTNU55dTBKb1BKRzhOWmFqY3Y3RW50bnREX1N5T0xNSFZPaG9peHVZbzB2aXBKcVU4OGthalN3?oc=5\"\n    },\n    {\n      \"title\": \"Heavy rain lashes Chennai, schools shut in 4 districts - The Times of India\",\n      \"source\": \"The Times of India\",\n      \"published\": \"Wed, 21 Oct 2026 06:03:00 GMT\",\n      \"link\": \"https://news.google.com/rss/articles/CBMixwFBVV95cUxOdkc0aVJjYjc0eVE1ZGQxLVlJOHNQVVJqd1ZpRExmWWJhY05ROFZ5Rm5GX19QX0ktRXlzYmtyVjB5Q3JkNVY0NlBRQU10bnRXN0p3UC1CUnlFNFNqc19jQ2NtOUJwU3hhUWNWdG1ickF3NWZaZVFvNk1DNVUzbm5uR2w0STV3TkxSV0poVDFGYnNxTWM0VWxBSXQ4NS1mdHJIRzdJc19hYTc5Rm05eFljU0VCU19yekZteW9TSThEZ2dIU0YwZ0Y40gHMAUFVX3lxTE5aQ25vRjl3OXFSWjBhcVZOejhXMi1qbkFwbHhFaFNiWWFqaWxzLUJmSTA4S2ExQ0VhY2VVSWJ3SExtOVd0dEt3MkRVd3FSc05ZZzZUZUFLVzQwWVZJSTFWd0ZyRjBTdUZtWFNtR3RvVlFRRzFzaGRXQWNaRFc4aXpOLTJjeWtOYWdidjFPdkt4ZmY5clMyczJYT3E4VVYtTGhSNWZPUWtPSWJBMWVGUlU5cEctdDd3blU0T0M4N2FBbHI4Y09aR0xTY3ZmSA?oc=5\"\n    }\n  ],\n  \"recommendation\": {\n    \"place\": {\n      \"name\": \"Government Museum, Chennai\",\n      \"kind\": \"museum\",\n      \"distance_km\": 3.0,\n      \"lat\": 13.07065,\n      \"lon\": 80.257289,\n      \"maps_url\": \"https://www.google.com/maps/search/?api=1&query=13.07065,80.257289\",\n      \"description\": null,\n      \"wikipedia_url\": \"https://en.wikipedia.org/wiki/Government_Museum,_Chennai\"\n    },\n    \"day\": \"2026-10-25\",\n    \"when\": \"09:00-12:30\",\n    \"why\": \"It is an indoor option, ideal for the predicted 90% chance of thunderstorms on Sunday. It's also very close.\",\n    \"plan\": [\n      \"09:00 Leave home for the Government Museum.\",\n      \"09:30-12:30 Explore the museum galleries.\",\n      \"12:30 Head back home.\",\n      \"Afternoon: rest indoors to avoid the storm.\"\n    ],\n    \"bring\": [\n      \"Umbrella\",\n      \"Water bottle\"\n    ],\n    \"news_notes\": [\n      \"Heavy overnight rain batters Chennai as Northeast monsoon gets active in Tamil Nadu\"\n    ],\n    \"backups\": [\n      {\n        \"name\": \"Thousand Lights Mosque\",\n        \"why\": \"Another indoor option, close by, suitable for bad weather.\"\n      },\n      {\n        \"name\": \"Guindy National Park\",\n        \"why\": \"A green escape, but riskier due to potential heavy rain.\"\n      }\n    ],\n    \"decided_by\": \"gemma4:e4b (Ollama)\"\n  },\n  \"summary\": \"Go to Government Museum, Chennai (3.0 km away) on 2026-10-25, 09:00-12:30.\\nIt is an indoor option, ideal for the predicted 90% chance of thunderstorms on Sunday. It's also very close.\\n• 09:00 Leave home for the Government Museum.\\n• 09:30-12:30 Explore the museum galleries.\\n• 12:30 Head back home.\\n• Afternoon: rest indoors to avoid the storm.\\nBring: Umbrella, Water bottle\\n📰 Heavy overnight rain batters Chennai as Northeast monsoon gets active in Tamil Nadu\\nOr: Thousand Lights Mosque (Another indoor option, close by, suitable for bad weather.); Guindy National Park (A green escape, but riskier due to potential heavy rain.)\"\n}"
+            },
+            {
+              "name": "400 duration not understood",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/recommend",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "recommend"
+                  ]
+                },
+                "description": "Same recommendation in a single call, for UIs that collect location and duration in one form.\n\nBody: `{ location: string (2-200 chars), duration: string (1-100 chars) }`\n\nResponse fields:\n- `location`, `duration`, `hours`, `radius_km`\n- `weather[]`: weekend days with `summary`, `max_c`, `min_c`, `rain_chance` (%), `rain_mm`, `sunrise`, `sunset`\n- `places[]`: candidates with `distance_km`, `kind`, `description`, `wikipedia_url`, `notability`\n- `news[]`: `title`, `source`, `published`, `link`\n- `recommendation`: `place` (with `maps_url`), `day`, `when`, `why`, `plan[]`, `bring[]`, `news_notes[]`, `backups[]`, `decided_by`. `place` can be null if nothing was found nearby.\n- `summary`: ready-to-show text\n\n⏱ Set a 5-minute timeout.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"location\": \"Chennai\",\n  \"duration\": \"whenever\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": \"Couldn't understand the duration. Try '3 hours', 'half day', 'full day' or 'whole weekend'.\"\n}"
+            },
+            {
+              "name": "400 location not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/recommend",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "recommend"
+                  ]
+                },
+                "description": "Same recommendation in a single call, for UIs that collect location and duration in one form.\n\nBody: `{ location: string (2-200 chars), duration: string (1-100 chars) }`\n\nResponse fields:\n- `location`, `duration`, `hours`, `radius_km`\n- `weather[]`: weekend days with `summary`, `max_c`, `min_c`, `rain_chance` (%), `rain_mm`, `sunrise`, `sunset`\n- `places[]`: candidates with `distance_km`, `kind`, `description`, `wikipedia_url`, `notability`\n- `news[]`: `title`, `source`, `published`, `link`\n- `recommendation`: `place` (with `maps_url`), `day`, `when`, `why`, `plan[]`, `bring[]`, `news_notes[]`, `backups[]`, `decided_by`. `place` can be null if nothing was found nearby.\n- `summary`: ready-to-show text\n\n⏱ Set a 5-minute timeout.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"location\": \"Xyzzyqqq\",\n  \"duration\": \"full day\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": \"Couldn't find 'Xyzzyqqq' on the map.\"\n}"
+            },
+            {
+              "name": "422 validation error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/recommend",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "recommend"
+                  ]
+                },
+                "description": "Same recommendation in a single call, for UIs that collect location and duration in one form.\n\nBody: `{ location: string (2-200 chars), duration: string (1-100 chars) }`\n\nResponse fields:\n- `location`, `duration`, `hours`, `radius_km`\n- `weather[]`: weekend days with `summary`, `max_c`, `min_c`, `rain_chance` (%), `rain_mm`, `sunrise`, `sunset`\n- `places[]`: candidates with `distance_km`, `kind`, `description`, `wikipedia_url`, `notability`\n- `news[]`: `title`, `source`, `published`, `link`\n- `recommendation`: `place` (with `maps_url`), `day`, `when`, `why`, `plan[]`, `bring[]`, `news_notes[]`, `backups[]`, `decided_by`. `place` can be null if nothing was found nearby.\n- `summary`: ready-to-show text\n\n⏱ Set a 5-minute timeout.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"location\": \"C\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": [\n    {\n      \"type\": \"string_too_short\",\n      \"loc\": [\n        \"body\",\n        \"location\"\n      ],\n      \"msg\": \"String should have at least 2 characters\",\n      \"input\": \"C\",\n      \"ctx\": {\n        \"min_length\": 2\n      }\n    },\n    {\n      \"type\": \"missing\",\n      \"loc\": [\n        \"body\",\n        \"duration\"\n      ],\n      \"msg\": \"Field required\",\n      \"input\": {\n        \"location\": \"C\"\n      }\n    }\n  ]\n}"
+            },
+            {
+              "name": "502 upstream failure",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/weekend/recommend",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "weekend",
+                    "recommend"
+                  ]
+                },
+                "description": "Same recommendation in a single call, for UIs that collect location and duration in one form.\n\nBody: `{ location: string (2-200 chars), duration: string (1-100 chars) }`\n\nResponse fields:\n- `location`, `duration`, `hours`, `radius_km`\n- `weather[]`: weekend days with `summary`, `max_c`, `min_c`, `rain_chance` (%), `rain_mm`, `sunrise`, `sunset`\n- `places[]`: candidates with `distance_km`, `kind`, `description`, `wikipedia_url`, `notability`\n- `news[]`: `title`, `source`, `published`, `link`\n- `recommendation`: `place` (with `maps_url`), `day`, `when`, `why`, `plan[]`, `bring[]`, `news_notes[]`, `backups[]`, `decided_by`. `place` can be null if nothing was found nearby.\n- `summary`: ready-to-show text\n\n⏱ Set a 5-minute timeout.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"location\": \"Chennai\",\n  \"duration\": \"full day\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Gateway",
+              "code": 502,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"detail\": \"Couldn't fetch weekend data: <error from weather/map service>\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "status"
+          ]
+        },
+        "description": "Liveness and version info."
+      },
+      "response": [
+        {
+          "name": "OK",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "status"
+              ]
+            },
+            "description": "Liveness and version info."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"ok\",\n  \"app\": \"project\",\n  \"version\": \"0.1.0\",\n  \"environment\": \"development\",\n  \"uptime_seconds\": 600.004,\n  \"timestamp\": \"2026-10-25T09:45:29.706996Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Sloth Trip Watcher",
+      "description": "Node.js service on port 3000 (`slothBaseUrl`). Errors are `{ error: string }`. Port 3000 must be opened in the Azure firewall before it's reachable from outside the server.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{slothBaseUrl}}/api/health",
+              "host": [
+                "{{slothBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Which integrations are live. `gemma` is the model name or false."
+          },
+          "response": [
+            {
+              "name": "OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/health",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                },
+                "description": "Which integrations are live. `gemma` is the model name or false."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"gemma\": \"gemma-4-31b-it\",\n  \"serpapi\": true,\n  \"telegram\": true,\n  \"checkEveryHours\": 12\n}"
+            }
+          ]
+        },
+        {
+          "name": "List watches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{slothBaseUrl}}/api/watches",
+              "host": [
+                "{{slothBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "watches"
+              ]
+            },
+            "description": "All watches, newest first."
+          },
+          "response": [
+            {
+              "name": "OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches"
+                  ]
+                },
+                "description": "All watches, newest first."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "[\n  {\n    \"id\": \"1061ebd8-8051-4a2e-9c72-6c13e34ff62c\",\n    \"createdAt\": \"2026-10-25T09:13:23.587Z\",\n    \"place\": {\n      \"name\": \"Mahabalipuram\",\n      \"region\": \"Tamil Nadu, India\",\n      \"lat\": 12.62091,\n      \"lon\": 80.19331\n    },\n    \"origin\": \"Chennai\",\n    \"from\": \"2026-10-25\",\n    \"to\": \"2026-11-08\",\n    \"budgetInr\": 3000,\n    \"weekendsOnly\": true,\n    \"noRain\": false,\n    \"vibe\": \"\",\n    \"lastCheck\": null,\n    \"notifiedFor\": null\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Create watch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{slothBaseUrl}}/api/watches",
+              "host": [
+                "{{slothBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "watches"
+              ]
+            },
+            "description": "Dates are YYYY-MM-DD with from <= to; budgetInr > 0 (per person, all-in). `noRain` defaults to true. Saves `watch_id` automatically.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Mahabalipuram\",\n  \"origin\": \"Chennai\",\n  \"from\": \"2026-10-25\",\n  \"to\": \"2026-11-08\",\n  \"budgetInr\": 3000,\n  \"weekendsOnly\": true,\n  \"noRain\": false,\n  \"vibe\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches"
+                  ]
+                },
+                "description": "Dates are YYYY-MM-DD with from <= to; budgetInr > 0 (per person, all-in). `noRain` defaults to true. Saves `watch_id` automatically.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"destination\": \"Mahabalipuram\",\n  \"origin\": \"Chennai\",\n  \"from\": \"2026-10-25\",\n  \"to\": \"2026-11-08\",\n  \"budgetInr\": 3000,\n  \"weekendsOnly\": true,\n  \"noRain\": false,\n  \"vibe\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"1061ebd8-8051-4a2e-9c72-6c13e34ff62c\",\n  \"createdAt\": \"2026-10-25T09:13:23.587Z\",\n  \"place\": {\n    \"name\": \"Mahabalipuram\",\n    \"region\": \"Tamil Nadu, India\",\n    \"lat\": 12.62091,\n    \"lon\": 80.19331\n  },\n  \"origin\": \"Chennai\",\n  \"from\": \"2026-10-25\",\n  \"to\": \"2026-11-08\",\n  \"budgetInr\": 3000,\n  \"weekendsOnly\": true,\n  \"noRain\": false,\n  \"vibe\": \"\",\n  \"lastCheck\": null,\n  \"notifiedFor\": null\n}"
+            },
+            {
+              "name": "400 unknown place",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches"
+                  ]
+                },
+                "description": "Dates are YYYY-MM-DD with from <= to; budgetInr > 0 (per person, all-in). `noRain` defaults to true. Saves `watch_id` automatically.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"destination\": \"Xyzzyqqq\",\n  \"origin\": \"Chennai\",\n  \"from\": \"2026-10-25\",\n  \"to\": \"2026-11-08\",\n  \"budgetInr\": 3000,\n  \"weekendsOnly\": true,\n  \"noRain\": false,\n  \"vibe\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"Couldn't find Xyzzyqqq on the map.\"\n}"
+            },
+            {
+              "name": "400 bad dates",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches"
+                  ]
+                },
+                "description": "Dates are YYYY-MM-DD with from <= to; budgetInr > 0 (per person, all-in). `noRain` defaults to true. Saves `watch_id` automatically.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"destination\": \"Mahabalipuram\",\n  \"origin\": \"Chennai\",\n  \"from\": \"2026-11-10\",\n  \"to\": \"2026-11-01\",\n  \"budgetInr\": 3000,\n  \"weekendsOnly\": true,\n  \"noRain\": false,\n  \"vibe\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"The earliest date must be on or before the latest date.\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.id) pm.collectionVariables.set('watch_id', data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check watch now",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}/check",
+              "host": [
+                "{{slothBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "watches",
+                "{{watch_id}}",
+                "check"
+              ]
+            },
+            "description": "Runs forecast → places → Gemma decision now (about 15 s with Gemma) and returns the updated watch. `lastCheck.verdict` is GO or NOT_YET; `lastCheck.alertError` is set if the Telegram alert failed."
+          },
+          "response": [
+            {
+              "name": "OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}/check",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches",
+                    "{{watch_id}}",
+                    "check"
+                  ]
+                },
+                "description": "Runs forecast → places → Gemma decision now (about 15 s with Gemma) and returns the updated watch. `lastCheck.verdict` is GO or NOT_YET; `lastCheck.alertError` is set if the Telegram alert failed."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"id\": \"1061ebd8-8051-4a2e-9c72-6c13e34ff62c\",\n  \"createdAt\": \"2026-10-25T09:13:23.587Z\",\n  \"place\": {\n    \"name\": \"Mahabalipuram\",\n    \"region\": \"Tamil Nadu, India\",\n    \"lat\": 12.62091,\n    \"lon\": 80.19331\n  },\n  \"origin\": \"Chennai\",\n  \"from\": \"2026-10-25\",\n  \"to\": \"2026-11-08\",\n  \"budgetInr\": 3000,\n  \"weekendsOnly\": true,\n  \"noRain\": false,\n  \"vibe\": \"\",\n  \"lastCheck\": null,\n  \"notifiedFor\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete watch",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}",
+              "host": [
+                "{{slothBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "watches",
+                "{{watch_id}}"
+              ]
+            },
+            "description": "Returns 204 with no body, or 404 `{ error }`."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

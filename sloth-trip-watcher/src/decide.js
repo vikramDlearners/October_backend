@@ -39,7 +39,7 @@ Watch rule:
 - Destination: ${place.name}, ${place.region}
 - Travelling from: ${watch.origin}
 - Dates: any ${watch.weekendsOnly ? 'Saturday or Sunday' : 'day'} from ${watch.from} to ${watch.to}
-- Weather rule: ${watch.noRain ? 'NO RAIN. A day is rainy if rainChance >= 40 or rainMm >= 2.' : 'rain is fine'}
+- Weather rule: ${watch.noRain ? 'NO RAIN. A day is rainy if rainChancePct >= 40 or rainMm >= 2.' : 'rain is fine'}
 - Budget: ₹${watch.budgetInr} per person, all-in (travel both ways, entry fees, food)
 - Vibe: ${watch.vibe || 'no preference'}
 
@@ -107,12 +107,14 @@ export function parseDecision(text, days) {
       date: plan.date,
       summary: String(plan.summary ?? ''),
       gettingThere: String(plan.gettingThere ?? ''),
+      howToGo: [],
       stops: (Array.isArray(plan.stops) ? plan.stops : []).map((s) => ({
         time: s.time ?? null,
         name: String(s.name ?? ''),
         note: String(s.note ?? ''),
         costInr: Number.isFinite(Number(s.costInr)) ? Number(s.costInr) : null,
       })),
+      packing: [],
       totalInr: Number.isFinite(Number(plan.totalInr)) ? Number(plan.totalInr) : null,
     },
   };
@@ -122,7 +124,7 @@ function fallback(watch, days, places, why) {
   const decidedBy = `rules (${why})`;
   const day = watch.noRain ? days.find((d) => !isRainy(d)) : days[0];
   if (!day) {
-    const chances = days.map((d) => `${d.date} ${d.rainChance}%`).join(', ');
+    const chances = days.map((d) => `${d.date} ${d.rainChancePct}%`).join(', ');
     return {
       verdict: 'NOT_YET',
       reason: `Every candidate day looks rainy (${chances}); waiting for a dry one.`,
@@ -137,7 +139,9 @@ function fallback(watch, days, places, why) {
       date: day.date,
       summary: `Day trip to ${watch.place.name}. Picked by simple rules, so check timings and costs yourself.`,
       gettingThere: `From ${watch.origin}; cost not estimated.`,
+      howToGo: [],
       stops: places.slice(0, 4).map((p) => ({ time: null, name: p.name, note: p.type ?? '', costInr: null })),
+      packing: [],
       totalInr: null,
     },
     decidedBy,

@@ -1,4 +1,5 @@
 import { config, telegramConfigured } from './config.js';
+import { priceDecision } from './costs.js';
 import { decide } from './decide.js';
 import { forecast, places } from './sources.js';
 import { mutate, readWatches } from './store.js';
@@ -19,7 +20,7 @@ async function doCheck(id) {
 
   const fc = await forecast(watch.place, watch);
   const found = await places(watch.place, watch.vibe);
-  const decision = await decide(watch, fc, found);
+  const decision = await priceDecision(watch, await decide(watch, fc, found), fc.days);
   const lastCheck = {
     at: new Date().toISOString(),
     horizon: fc.horizon,

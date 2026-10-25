@@ -7,6 +7,7 @@ export const config = {
   checkEveryHours: Number(env.CHECK_EVERY_HOURS) > 0 ? Number(env.CHECK_EVERY_HOURS) : 12,
   geminiKey: env.GEMINI_API_KEY?.trim() || '',
   gemmaModel: env.GEMMA_MODEL?.trim() || 'gemma-4-31b-it',
+  flashModel: env.GEMINI_FLASH_MODEL?.trim() || 'gemini-3.8-flash',
   serpapiKey: env.SERPAPI_KEY?.trim() || '',
   telegramToken: env.TELEGRAM_BOT_TOKEN?.trim() || '',
   telegramChatId: env.TELEGRAM_CHAT_ID?.trim() || '',
@@ -39,7 +40,7 @@ export function configWarnings() {
   if (Boolean(telegramToken) !== Boolean(telegramChatId)) {
     warnings.push('Telegram needs both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID; alerts are off.');
   }
-  if (!config.geminiKey) warnings.push('GEMINI_API_KEY not set; decisions use the simple rules fallback.');
+  if (!config.geminiKey) warnings.push('GEMINI_API_KEY not set; decisions use the simple rules fallback and plans are not priced.');
   if (config.itineraryApiUrl && !URL.canParse(config.itineraryApiUrl)) {
     warnings.push('ITINERARY_API_URL is not a valid URL; emailing itineraries will fail.');
   }

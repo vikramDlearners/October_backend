@@ -56,7 +56,12 @@ async function readBody(req) {
   }
 }
 
-const isRealDate = (s) => DATE.test(s) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s);
+// Invalid Date.toISOString() throws, so check the time value first (2026-13-01 is NaN; 2026-02-30 rolls over).
+const isRealDate = (s) => {
+  if (typeof s !== 'string' || !DATE.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s);
+};
 
 async function createWatch(body) {
   const destination = String(body.destination ?? '').trim();

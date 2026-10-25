@@ -60,13 +60,13 @@ function forecastStrip(days, chosenDate) {
     days.map((d) => h('div', {
       class: `day${d.date === chosenDate ? ' chosen' : ''}`,
       role: 'listitem',
-      title: `${d.date}: ${Math.round(d.minC)}–${Math.round(d.maxC)}°C, ${d.rainChance}% rain chance, ${d.rainMm} mm`,
+      title: `${d.date}: ${Math.round(d.tempMinC)}–${Math.round(d.tempMaxC)}°C, ${d.rainChancePct}% rain chance, ${d.rainMm} mm`,
     },
       h('div', { class: 'wd' }, d.weekday),
       h('div', {}, shortDate(d.date)),
-      h('div', { class: 'emoji', 'aria-hidden': 'true' }, weatherEmoji(d.code)),
-      h('div', {}, `${Math.round(d.maxC)}°`),
-      h('div', { class: 'rain' }, `💧${d.rainChance}%`),
+      h('div', { class: 'emoji', 'aria-hidden': 'true' }, weatherEmoji(d.weatherCode)),
+      h('div', {}, `${Math.round(d.tempMaxC)}°`),
+      h('div', { class: 'rain' }, `💧${d.rainChancePct}%`),
     )),
   );
 }
@@ -75,12 +75,18 @@ function planView(plan) {
   return h('div', { class: 'plan' },
     plan.summary && h('p', {}, plan.summary),
     plan.gettingThere && h('p', {}, `🚌 ${plan.gettingThere}`),
+    plan.howToGo?.length > 0 && h('ul', { class: 'stops' }, plan.howToGo.map((o) => h('li', { class: 'stop' },
+      h('span', { class: 'time' }, o.mode),
+      h('span', {}, o.route, h('span', { class: 'note' }, [o.durationMin != null && `${o.durationMin} min one way`, o.tip].filter(Boolean).join(' · '))),
+      h('span', { class: 'cost' }, o.costInr != null ? rupees(o.costInr) : ''),
+    ))),
     plan.stops.length > 0 && h('ol', { class: 'stops' }, plan.stops.map((s) => h('li', { class: 'stop' },
       h('span', { class: 'time' }, s.time || '—'),
       h('span', {}, s.name, s.note && h('span', { class: 'note' }, s.note)),
       h('span', { class: 'cost' }, s.costInr != null ? rupees(s.costInr) : ''),
     ))),
-    plan.totalInr != null && h('p', { class: 'total' }, `Total ≈ ${rupees(plan.totalInr)}`),
+    plan.packing?.length > 0 && h('p', { class: 'note' }, `🎒 ${plan.packing.map((p) => p.item).join(', ')}`),
+    plan.totalInr != null && h('p', { class: 'total' }, `Total ≈ ${rupees(plan.totalInr)}${plan.costsBy ? ` (priced by ${plan.costsBy} with Google Search)` : ''}`),
   );
 }
 

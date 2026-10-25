@@ -21,10 +21,11 @@ npm run check          # check every watch once and exit
 
 ## How a check works
 
-1. **Forecast:** Open-Meteo, 16 days, keyless. Only days inside your window (Sat/Sun with "weekends only") count. A day is rainy at ≥ 40% rain chance or ≥ 2 mm.
+1. **Forecast:** Open-Meteo, 16 days, keyless. Each day is `{ date, weekday, weatherCode, tempMaxC, tempMinC, rainMm, rainChancePct }`. Only days inside your window (Sat/Sun with "weekends only") count. A day is rainy at ≥ 40% rain chance or ≥ 2 mm.
 2. **Places:** the top 8 Google Maps results via SerpApi (`"<vibe> places in <town>"` or `"things to do in <town>"`). If the lookup fails, Gemma uses its own knowledge.
 3. **Decide:** Gemma (`gemma-4-31b-it` via the Gemini API, thinking set to `minimal`, about 14 s) returns one verdict and at most one plan. With no key, an API error, a timeout or unparseable output, a rules fallback picks the first dry day. Each card shows who decided.
-4. **Alert:** on a GO for a date not yet alerted, Telegram gets the plan. If sending fails, the card shows "Telegram alert not sent", the plan is still saved, and the next check retries.
+4. **Price:** on a GO, Gemini Flash (`GEMINI_FLASH_MODEL`, default `gemini-3.8-flash`, same key) uses Google Search grounding to look up current bus, train and cab fares, entry fees and food prices. It fills in `howToGo`, timed and costed `stops`, `packing` and `totalInr`, takes about 20 s and records `costsBy` and any `costSources`. A plan over budget becomes NOT_YET. If the lookup fails, the plan is kept unpriced.
+5. **Alert:** on a GO for a date not yet alerted, Telegram gets the plan. If sending fails, the card shows "Telegram alert not sent", the plan is still saved, and the next check retries.
 
 Checks run every `CHECK_EVERY_HOURS` (default 12) inside the web process, and on demand with **Check now**.
 

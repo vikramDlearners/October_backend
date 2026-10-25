@@ -26,7 +26,7 @@ export async function geocode(name) {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const weekdayOf = (date) => WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()];
 
-export const isRainy = (day) => day.rainChance >= 40 || day.rainMm >= 2;
+export const isRainy = (day) => day.rainChancePct >= 40 || day.rainMm >= 2;
 
 export async function forecast(place, { from, to, weekendsOnly }) {
   const params = new URLSearchParams({
@@ -41,11 +41,11 @@ export async function forecast(place, { from, to, weekendsOnly }) {
     .map((date, i) => ({
       date,
       weekday: weekdayOf(date),
-      code: daily.weather_code[i],
-      maxC: daily.temperature_2m_max[i],
-      minC: daily.temperature_2m_min[i],
+      weatherCode: daily.weather_code[i],
+      tempMaxC: daily.temperature_2m_max[i],
+      tempMinC: daily.temperature_2m_min[i],
       rainMm: daily.precipitation_sum[i] ?? 0,
-      rainChance: daily.precipitation_probability_max[i] ?? 0,
+      rainChancePct: daily.precipitation_probability_max[i] ?? 0,
     }))
     .filter((day) => day.date >= from && day.date <= to)
     .filter((day) => !weekendsOnly || day.weekday === 'Sat' || day.weekday === 'Sun');

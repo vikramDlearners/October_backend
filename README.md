@@ -22,6 +22,7 @@ A Postman collection covering every endpoint of both services is in [`postman/Oc
   - [Setup and run](#setup-and-run-1)
   - [Configuration](#configuration-1)
   - [API reference](#sloth-trip-watcher-api-reference)
+  - [How plans are priced](#how-plans-are-priced)
   - [Using it from a frontend](#using-it-from-a-frontend)
   - [The email service](#the-email-service)
   - [Deploy](#deploy)
@@ -267,6 +268,7 @@ Watches are stored in one JSON file, `${DATA_DIR}/watches.json`. Every write goe
 |---|---|---|
 | `GEMINI_API_KEY` | *(empty)* | Google AI Studio key used to call Gemma. Without it, a rules fallback decides |
 | `GEMMA_MODEL` | `gemma-4-31b-it` | Or `gemma-4-26b-a4b-it` |
+| `GEMINI_FLASH_MODEL` | `gemini-3.8-flash` | Prices GO plans with Google Search grounding, using the same `GEMINI_API_KEY` |
 | `SERPAPI_KEY` | *(empty)* | Google Maps places via SerpApi. Without it, Gemma plans from its own knowledge |
 | `TELEGRAM_BOT_TOKEN` | *(empty)* | The **full** token from BotFather, `<digits>:<~35 chars>` |
 | `TELEGRAM_CHAT_ID` | *(empty)* | Numeric chat ID (negative for groups). Telegram needs both values |
@@ -339,14 +341,16 @@ The destination is geocoded when the watch is created. A place that can't be fou
   "budgetInr": 3000, "weekendsOnly": true, "noRain": false, "vibe": "beaches, temples",
   "lastCheck": {
     "at": "ISO time", "verdict": "GO | NOT_YET", "reason": "…", "decidedBy": "gemma-4-31b-it", "horizon": "2026-11-09",
-    "days": [{ "date": "2026-10-31", "weekday": "Sat", "weatherCode": 3, "tempMaxC": 31, "rainChancePct": 40 }],
+    "days": [{ "date": "2026-10-31", "weekday": "Sat", "weatherCode": 3, "tempMaxC": 31, "tempMinC": 25, "rainMm": 0.4, "rainChancePct": 40 }],
     "alertError": "only present if the Telegram alert failed",
     "plan": {
       "date": "2026-10-31", "summary": "…", "gettingThere": "…",
       "howToGo": [{ "mode": "Bus", "route": "…", "durationMin": 120, "costInr": 150, "tip": "…" }],
       "stops": [{ "time": "10:00", "name": "…", "note": "…", "costInr": 40 }],
       "packing": [{ "item": "Water bottle", "why": "…" }],
-      "totalInr": 970
+      "totalInr": 970,
+      "costsBy": "gemini-3.8-flash",
+      "costSources": [{ "title": "…", "url": "…" }]
     }
   },
   "notifiedFor": "2026-10-31"
@@ -355,12 +359,13 @@ The destination is geocoded when the watch is created. A place that can't be fou
 
 - `lastCheck` is `null` until the first check has run.
 - `plan` is `null` when `verdict` is `NOT_YET`.
+- `howToGo` costs and durations are one way per person. `totalInr` is per person: the first `howToGo` option both ways, plus every stop. `costsBy` names the model that priced the plan (see [How plans are priced](#how-plans-are-priced)). If pricing didn't run, `costsBy` is absent, `howToGo` and `packing` are `[]`, and `totalInr` may be `null`.
 - `horizon` is the last date the forecast covers. Open-Meteo forecasts 16 days ahead, so dates beyond that wait for later checks.
 - `notifiedFor` is the plan date Telegram was last told about. It prevents repeat alerts for the same date.
 
 #### 4. `POST /api/watches/:id/check`
 
-Runs forecast → places → decision now. With Gemma this takes about 15 s. If a scheduled check of the same watch is already running, the request waits for it instead of starting a second one, so the same alert can't be sent twice. Returns 404 for an unknown watch, or 502 with `Check failed: …`.
+Runs forecast → places → decision → pricing now. With Gemma and Flash pricing it takes about 30–40 s. If a scheduled check of the same watch is already running, the request waits for it instead of starting a second one, so the same alert can't be sent twice. Returns 404 for an unknown watch, or 502 with `Check failed: …`.
 
 #### 5. `DELETE /api/watches/:id`
 
@@ -398,6 +403,31 @@ curl -s -X POST $B/api/watches/$ID/check
 curl -s -X POST $B/api/watches/$ID/send -H 'content-type: application/json' -d '{"email":"you@example.com"}'
 curl -s -X DELETE $B/api/watches/$ID
 ```
+
+### How plans are priced
+
+After a GO decision, by Gemma or by the rules fallback, the plan goes to **Gemini Flash with Google Search grounding**. It is asked to look up current prices:
+
+- government and private bus fares (TNSTC, SETC, KSRTC and others)
+- IRCTC train fares
+- metro, auto and cab rates
+- entry fees for Indian citizens
+- local food prices
+
+It returns:
+
+- `howToGo`: 1–3 ways to get there, cheapest first, with one-way cost and duration
+- `stops`: the same stops with start times, notes and costs, plus a lunch stop if there wasn't one
+- `packing`: 3–6 items for the place and that day's weather
+- `totalInr` and a one-line `gettingThere`
+
+What happens next:
+
+- **Over budget:** if `totalInr` is more than `budgetInr`, the verdict becomes **NOT_YET**, with the estimated cost in `reason`.
+- **Sources:** `costSources` lists the web pages Google returned when a search ran. If it's empty, the model answered from its own knowledge, so check the prices.
+- **No pricing:** without `GEMINI_API_KEY`, or if the lookup fails or times out (90 s), the plan is kept without prices and the failure is logged as `[costs] …`.
+
+Search grounding is billed separately from tokens on the Gemini API. Each GO check makes one grounded call.
 
 ### Using it from a frontend
 
@@ -477,7 +507,7 @@ Each request comes with example responses.
 | `/weekend/*` answers take minutes | No `GEMINI_API_KEY`, so the app is waiting on CPU-only Ollama. `decided_by` shows which option answered |
 | Few or no places found | Wikidata rate-limited the server (the fallback is a 10 km Wikipedia search), or the town is small. Try a bigger town nearby or a longer duration |
 | `403` from Wikimedia in the logs | `USER_AGENT` has no contact URL |
-| Health shows `gemma: false` | `GEMINI_API_KEY` is empty in the deployed `.env`. Decisions use the rules fallback |
+| Health shows `gemma: false` | `GEMINI_API_KEY` is empty in the deployed `.env`. Decisions use the rules fallback and plans aren't priced |
 | Card says "Telegram alert not sent" | Bad token or chat ID. The 404 error means the token is truncated. The next check retries the alert |
 | Send returns 503 | `ITINERARY_API_URL` isn't set on the server |
 | Browser shows a CORS error | The page's origin doesn't match `CORS_ORIGIN`, or an https page is calling the http API |

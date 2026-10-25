@@ -1,0 +1,23 @@
+[Unit]
+Description=Sloth Trip Watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sloth
+Group=sloth
+WorkingDirectory=/opt/sloth-trip-watcher
+Environment=NODE_ENV=production
+Environment=DATA_DIR=/var/lib/sloth-trip-watcher
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/sloth-trip-watcher
+
+[Install]
+WantedBy=multi-user.target

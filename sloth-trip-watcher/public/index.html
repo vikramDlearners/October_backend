@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sloth Trip Watcher</title>
+  <meta name="description" content="Tell it once. Do nothing. It tells you when to go.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦥</text></svg>">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1><span aria-hidden="true">🦥</span> Sloth Trip Watcher</h1>
+      <p class="tagline">Tell it once. Do nothing. It tells you when to go.</p>
+    </div>
+    <ul class="pills" id="pills" aria-label="Integrations"></ul>
+  </header>
+
+  <main class="layout">
+    <section class="panel new-watch" aria-labelledby="new-watch-title">
+      <h2 id="new-watch-title">New watch</h2>
+      <form id="watch-form" novalidate>
+        <label>Where to?
+          <input name="destination" required placeholder="Mahabalipuram" autocomplete="off">
+        </label>
+        <label>From
+          <input name="origin" required placeholder="Chennai" autocomplete="off">
+        </label>
+        <div class="row">
+          <label>Earliest
+            <input name="from" type="date" required>
+          </label>
+          <label>Latest
+            <input name="to" type="date" required>
+          </label>
+        </div>
+        <label>Budget ₹ <span class="hint">per person, all-in</span>
+          <input name="budgetInr" type="number" min="100" step="100" value="5000" required>
+        </label>
+        <label>Vibe <span class="hint">optional</span>
+          <input name="vibe" placeholder="beaches, temples, quiet cafés…" autocomplete="off">
+        </label>
+        <div class="checks">
+          <label class="check"><input name="weekendsOnly" type="checkbox"> Weekends only</label>
+          <label class="check"><input name="noRain" type="checkbox" checked> No rain</label>
+        </div>
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+        <button type="submit" class="primary">Start watching</button>
+      </form>
+    </section>
+
+    <section class="watches" aria-label="Your watches">
+      <div id="watches"></div>
+    </section>
+  </main>
+</body>
+</html>

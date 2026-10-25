@@ -1,0 +1,16 @@
+{
+  "name": "sloth-trip-watcher",
+  "version": "1.0.0",
+  "description": "Tell it once. Do nothing. It tells you when to go.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server.js",
+    "check": "node --env-file-if-exists=.env src/check-all.js"
+  }
+}

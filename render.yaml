@@ -1,0 +1,32 @@
+# One web service with the scheduler inside it. A separate Render cron job
+# couldn't read this service's disk, so there isn't one.
+services:
+  - type: web
+    name: sloth-trip-watcher
+    runtime: node
+    rootDir: sloth-trip-watcher
+    plan: starter
+    buildCommand: "true"
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: sloth-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+      - key: GEMMA_MODEL
+        value: gemma-4-31b-it
+      - key: CHECK_EVERY_HOURS
+        value: "12"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SERPAPI_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false

@@ -32,11 +32,16 @@ Checks run every `CHECK_EVERY_HOURS` (default 12) inside the web process, and on
 
 | Method | Path | |
 |---|---|---|
-| GET | `/api/health` | `{ gemma, serpapi, telegram, checkEveryHours }` |
+| GET | `/api/health` | `{ gemma, serpapi, telegram, itineraryApi, checkEveryHours }` |
 | GET | `/api/watches` | all watches, newest first |
 | POST | `/api/watches` | `{ destination, origin, from, to, budgetInr, weekendsOnly, noRain, vibe }` returns 201 |
-| DELETE | `/api/watches/:id` | 204 |
+| DELETE | `/api/watches/:id` | `{ ok: true }` |
 | POST | `/api/watches/:id/check` | runs a check now and returns the updated watch |
+| POST | `/api/watches/:id/send` | `{ email }` emails the GO plan and returns `{ ok, to, status }`. 400 bad email, 409 no GO plan yet, 503 `ITINERARY_API_URL` not set, 502 email service failed |
+
+Errors are `{ error: "message" }` with a non-2xx status. Every `/api/` response carries CORS headers for `CORS_ORIGIN` (default `*`), and `OPTIONS` preflights get 204, so the page can be hosted on another origin.
+
+**Email service.** Send POSTs `{ to, subject, text, itinerary }` to `ITINERARY_API_URL`, where `text` is the same message Telegram gets and `itinerary` is `{ place, origin, budgetInr, reason, decidedBy, plan }`. Any 2xx counts as sent; its status is returned as `status`.
 
 ## Deploy on Ubuntu
 
@@ -63,7 +68,7 @@ Open port 3000 (`sudo ufw allow 3000/tcp` if ufw is active, plus your cloud fire
 
 ## Deploy on Render
 
-`render.yaml` (at the repo root, with `rootDir: sloth-trip-watcher`) defines one web service: Node, starter plan, no build, `npm start`, health check on `/api/health`, and a 1 GB disk at `/var/data` for `watches.json`. Create a Blueprint from the repo and fill in the four secrets. The scheduler lives in the web service because a separate cron job couldn't read its disk.
+`render.yaml` (at the repo root, with `rootDir: sloth-trip-watcher`) defines one web service: Node, starter plan, no build, `npm start`, health check on `/api/health`, and a 1 GB disk at `/var/data` for `watches.json`. Create a Blueprint from the repo and fill in the secrets. The scheduler lives in the web service because a separate cron job couldn't read its disk.
 
 ## Later: Hermes chat front end
 

@@ -10,6 +10,8 @@ export const config = {
   serpapiKey: env.SERPAPI_KEY?.trim() || '',
   telegramToken: env.TELEGRAM_BOT_TOKEN?.trim() || '',
   telegramChatId: env.TELEGRAM_CHAT_ID?.trim() || '',
+  itineraryApiUrl: env.ITINERARY_API_URL?.trim() || '',
+  corsOrigin: env.CORS_ORIGIN?.trim() || '*',
 };
 
 export const telegramConfigured = () => Boolean(config.telegramToken && config.telegramChatId);
@@ -19,6 +21,7 @@ export function health() {
     gemma: config.geminiKey ? config.gemmaModel : false,
     serpapi: Boolean(config.serpapiKey),
     telegram: telegramConfigured(),
+    itineraryApi: Boolean(config.itineraryApiUrl),
     checkEveryHours: config.checkEveryHours,
   };
 }
@@ -37,6 +40,9 @@ export function configWarnings() {
     warnings.push('Telegram needs both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID; alerts are off.');
   }
   if (!config.geminiKey) warnings.push('GEMINI_API_KEY not set; decisions use the simple rules fallback.');
+  if (config.itineraryApiUrl && !URL.canParse(config.itineraryApiUrl)) {
+    warnings.push('ITINERARY_API_URL is not a valid URL; emailing itineraries will fail.');
+  }
   if (!config.serpapiKey) warnings.push('SERPAPI_KEY not set; Gemma plans from its own knowledge of each place.');
   return warnings;
 }

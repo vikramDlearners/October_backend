@@ -30,3 +30,7 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      - key: ITINERARY_API_URL
+        sync: false
+      - key: CORS_ORIGIN
+        value: "*"

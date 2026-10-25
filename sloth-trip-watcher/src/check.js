@@ -54,7 +54,7 @@ async function doCheck(id) {
 
 const rupees = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
 
-function alertText(watch, { reason, plan }) {
+export function alertText(watch, { reason, plan }) {
   const stops = plan.stops.map((s) =>
     `• ${s.time ? `${s.time} ` : ''}${s.name}${s.costInr != null ? ` (${rupees(s.costInr)})` : ''}`,
   );

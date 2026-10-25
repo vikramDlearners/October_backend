@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { config, configWarnings, health } from './config.js';
 import { checkAll, runCheck } from './check.js';
+import { isEmail, sendItinerary } from './send.js';
 import { geocode } from './sources.js';
 import { mutate, readWatches } from './store.js';
 
@@ -25,6 +26,15 @@ class HttpError extends Error {
     this.status = status;
   }
 }
+
+// Lets a page hosted on another origin call the API.
+const CORS_HEADERS = {
+  'access-control-allow-origin': config.corsOrigin,
+  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+  'access-control-allow-headers': 'content-type',
+  'access-control-max-age': '86400',
+  ...(config.corsOrigin === '*' ? {} : { vary: 'Origin' }),
+};
 
 function sendJson(res, status, body) {
   res.writeHead(status, { 'content-type': CONTENT_TYPES.json, 'cache-control': 'no-store' });
@@ -85,7 +95,27 @@ async function createWatch(body) {
   return watch;
 }
 
+async function sendWatch(id, body) {
+  const to = String(body.email ?? '').trim();
+  if (!isEmail(to)) throw new HttpError(400, 'Enter a valid email address.');
+  const watch = (await readWatches()).find((w) => w.id === id);
+  if (!watch) throw new HttpError(404, 'No such watch.');
+  if (watch.lastCheck?.verdict !== 'GO' || !watch.lastCheck.plan) throw new HttpError(409, 'No GO plan yet. Run "Check now" first.');
+  if (!config.itineraryApiUrl) throw new HttpError(503, 'Email is not set up: ITINERARY_API_URL is missing on the server.');
+  try {
+    return { ok: true, to, status: await sendItinerary(watch, to) };
+  } catch (err) {
+    throw new HttpError(502, `Email not sent: ${err.message}`);
+  }
+}
+
 async function api(req, res, pathname) {
+  for (const [key, value] of Object.entries(CORS_HEADERS)) res.setHeader(key, value);
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204).end();
+    return;
+  }
+
   if (pathname === '/api/health' && req.method === 'GET') return sendJson(res, 200, health());
 
   if (pathname === '/api/watches') {
@@ -96,20 +126,20 @@ async function api(req, res, pathname) {
     if (req.method === 'POST') return sendJson(res, 201, await createWatch(await readBody(req)));
   }
 
-  const match = pathname.match(/^\/api\/watches\/([0-9a-f-]{36})(\/check)?$/);
+  const match = pathname.match(/^\/api\/watches\/([0-9a-f-]{36})(?:\/(check|send))?$/);
   if (match) {
-    const [, id, check] = match;
-    if (!check && req.method === 'DELETE') {
+    const [, id, action] = match;
+    if (!action && req.method === 'DELETE') {
       const removed = await mutate((watches) => {
         const index = watches.findIndex((w) => w.id === id);
         if (index >= 0) watches.splice(index, 1);
         return index >= 0;
       });
       if (!removed) throw new HttpError(404, 'No such watch.');
-      res.writeHead(204).end();
-      return;
+      return sendJson(res, 200, { ok: true });
     }
-    if (check && req.method === 'POST') {
+    if (action === 'send' && req.method === 'POST') return sendJson(res, 200, await sendWatch(id, await readBody(req)));
+    if (action === 'check' && req.method === 'POST') {
       let updated;
       try {
         updated = await runCheck(id);

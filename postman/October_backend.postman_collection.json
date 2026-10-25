@@ -738,7 +738,7 @@
                 "health"
               ]
             },
-            "description": "Which integrations are live. `gemma` is the model name or false."
+            "description": "Which integrations are live. `gemma` is the model name or false; `itineraryApi` is whether ITINERARY_API_URL is set (needed by Send)."
           },
           "response": [
             {
@@ -756,7 +756,7 @@
                     "health"
                   ]
                 },
-                "description": "Which integrations are live. `gemma` is the model name or false."
+                "description": "Which integrations are live. `gemma` is the model name or false; `itineraryApi` is whether ITINERARY_API_URL is set (needed by Send)."
               },
               "status": "OK",
               "code": 200,
@@ -767,7 +767,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"gemma\": \"gemma-4-31b-it\",\n  \"serpapi\": true,\n  \"telegram\": true,\n  \"checkEveryHours\": 12\n}"
+              "body": "{\n  \"gemma\": \"gemma-4-31b-it\",\n  \"serpapi\": true,\n  \"telegram\": true,\n  \"itineraryApi\": false,\n  \"checkEveryHours\": 12\n}"
             }
           ]
         },
@@ -1044,6 +1044,174 @@
           ]
         },
         {
+          "name": "Send itinerary by email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}/send",
+              "host": [
+                "{{slothBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "watches",
+                "{{watch_id}}",
+                "send"
+              ]
+            },
+            "description": "Emails the watch's GO plan via the server's ITINERARY_API_URL, which receives `{ to, subject, text, itinerary }`.\n\nErrors: 400 invalid email, 404 no such watch, 409 no GO plan yet (run Check now), 503 ITINERARY_API_URL not set, 502 email service failed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"you@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Sent",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}/send",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches",
+                    "{{watch_id}}",
+                    "send"
+                  ]
+                },
+                "description": "Emails the watch's GO plan via the server's ITINERARY_API_URL, which receives `{ to, subject, text, itinerary }`.\n\nErrors: 400 invalid email, 404 no such watch, 409 no GO plan yet (run Check now), 503 ITINERARY_API_URL not set, 502 email service failed.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"you@example.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"ok\": true,\n  \"to\": \"you@example.com\",\n  \"status\": 202\n}"
+            },
+            {
+              "name": "No GO plan yet",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}/send",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches",
+                    "{{watch_id}}",
+                    "send"
+                  ]
+                },
+                "description": "Emails the watch's GO plan via the server's ITINERARY_API_URL, which receives `{ to, subject, text, itinerary }`.\n\nErrors: 400 invalid email, 404 no such watch, 409 no GO plan yet (run Check now), 503 ITINERARY_API_URL not set, 502 email service failed.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"you@example.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"No GO plan yet. Run \\\"Check now\\\" first.\"\n}"
+            },
+            {
+              "name": "Email not set up",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{slothBaseUrl}}/api/watches/{{watch_id}}/send",
+                  "host": [
+                    "{{slothBaseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "watches",
+                    "{{watch_id}}",
+                    "send"
+                  ]
+                },
+                "description": "Emails the watch's GO plan via the server's ITINERARY_API_URL, which receives `{ to, subject, text, itinerary }`.\n\nErrors: 400 invalid email, 404 no such watch, 409 no GO plan yet (run Check now), 503 ITINERARY_API_URL not set, 502 email service failed.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"you@example.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"Email is not set up: ITINERARY_API_URL is missing on the server.\"\n}"
+            }
+          ]
+        },
+        {
           "name": "Delete watch",
           "request": {
             "method": "DELETE",
@@ -1059,7 +1227,7 @@
                 "{{watch_id}}"
               ]
             },
-            "description": "Returns 204 with no body, or 404 `{ error }`."
+            "description": "Returns 200 `{ ok: true }`, or 404 `{ error }`."
           },
           "response": []
         }
